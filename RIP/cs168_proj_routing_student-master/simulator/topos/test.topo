@@ -1,0 +1,13 @@
+# Triangle topology.
+h A
+h B
+h C
+s s1
+s s2
+s s3
+l A s1
+l B s2
+l C s3
+l s1 s2 0.5
+l s2 s3 0.5
+l s3 s1

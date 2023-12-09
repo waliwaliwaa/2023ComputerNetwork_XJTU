@@ -1,5 +1,5 @@
 """
-Duozhi's Distance Vector router for CS 168
+Your awesome Distance Vector router for CS 168
 
 Based on skeleton code by:
   MurphyMc, zhangwen0411, lab352
@@ -52,8 +52,16 @@ class DVRouter(DVRouterBase):
         # This is the table that contains all current routes
         self.table = Table()
         self.table.owner = self
-        self.last_table = Table()
-        self.last_table.owner = self
+
+    def update_forwarding_table(self):
+        for port, peer_table in self.peer_tables.items():
+            for host, entry in peer_table.items():
+                if not host in self.table:
+                    self.table[host] = TableEntry(host, port, self.link_latency[port] + entry.latency)
+                else:
+                    if self.table[host].latency > self.link_latency[port] + entry.latency:
+                        self.table[host] = TableEntry(host, port, self.link_latency[port] + entry.latency)
+
 
     def add_static_route(self, host, port):
         """
@@ -69,8 +77,14 @@ class DVRouter(DVRouterBase):
         # `port` should have been added to `peer_tables` by `handle_link_up`
         # when the link came up.
         assert port in self.ports.get_all_ports(), "Link should be up, but is not."
-        self.table[host] = TableEntry(dst=host, port=port, latency=self.ports.get_latency(port), expire_time=FOREVER)
-        self.send_routes(force=False)
+
+        # TODO: fill this in!
+        # 获取主机的IP地址和子网掩码
+        
+        self.peer_tables[port][host] = PeerTableEntry(host, 0, PeerTableEntry.FOREVER)
+        self.update_forwarding_table()
+        self.send_routes()
+
 
     def handle_data_packet(self, packet, in_port):
         """
@@ -82,30 +96,14 @@ class DVRouter(DVRouterBase):
         :param in_port: the port from which the packet arrived.
         :return: nothing.
         """
-        if packet.dst not in self.table:
-            return
-        entry = self.table[packet.dst]
-        if entry.latency >= INFINITY:
-            return
-        self.send(packet, entry.port)
-    def send_single(self, force=False, port=None):
-        """
-        Send route advertisements for a single port in the table
-        Do NOT update last_table.
-        """
-        assert port is not None
-        for host, entry in self.table.items():
-            cur_sent = entry.latency if entry.port != port or not self.POISON_REVERSE else INFINITY
-            if not force and host in self.last_table:
-                las = self.last_table[host]
-                las_sent = las.latency if las.port != port or not self.POISON_REVERSE else INFINITY
-                if las_sent == cur_sent: continue
-            if not self.SPLIT_HORIZON or port != entry.port:
-                self.send_route(port=port, dst=host, latency=cur_sent)
-        
+        # TODO: fill this in!
+        if packet.dst in self.table and self.table[packet.dst].latency < INFINITY and self.table[packet.dst].port != in_port:
+            self.send(packet, self.table[packet.dst].port)
+
+
     def send_routes(self, force=False, single_port=None):
         """
-        Send route advertisements for all routes in the table and update last_table
+        Send route advertisements for all routes in the table.
 
         :param force: if True, advertises ALL routes in the table;
                       otherwise, advertises only those routes that have
@@ -114,29 +112,28 @@ class DVRouter(DVRouterBase):
                             be used in conjunction with handle_link_up.
         :return: nothing.
         """
-        self.expire_routes()
-        if single_port:
-            assert single_port in self.ports.get_all_ports()
-            self.send_single(force, single_port)
-        else:
-            for port in self.ports.get_all_ports():
-                self.send_single(force, port)
-        self.last_table = self.table
-        self.table = Table(self.last_table)
-        assert id(self.last_table) != id(self.table)
+        # TODO: fill this in!
+        if force == True:
+            for port in self.peer_tables:
+                for host, entry in self.table.items():
+                    if entry.port != port:
+                        if entry.latency >= INFINITY:
+                            route_packet = basics.RoutePacket(host, INFINITY)
+                        else:
+                            route_packet = basics.RoutePacket(host, entry.latency)
+                        self.send(route_packet, port)
 
     def expire_routes(self):
         """
         Clears out expired routes from table.
         accordingly.
         """
-        nt = Table()
-        for k, v in self.table.items():
-            if v.expire_time > api.current_time():
-                nt[k] = v
-            elif self.POISON_EXPIRED and v.latency < INFINITY:
-                nt[k] = TableEntry(dst=v.dst, port=v.port, latency=INFINITY, expire_time=api.current_time()+self.ROUTE_TTL)
-        self.table = nt
+        # TODO: fill this in!
+        for port, table in self.peer_tables.items():
+            for dst, entry in table.items():
+                if api.current_time() > entry.expire_time:
+                    table.pop(dst)
+        self.update_forwarding_table()
 
     def handle_route_advertisement(self, route_dst, route_latency, port):
         """
@@ -147,17 +144,11 @@ class DVRouter(DVRouterBase):
         :param port: the port that the advertisement arrived on.
         :return: nothing.
         """
-        if route_latency == INFINITY: # poisoned
-            if route_dst in self.table and self.table[route_dst].port == port:
-                entry = self.table[route_dst]
-                self.table[route_dst] = TableEntry(dst=route_dst, port=port, latency=INFINITY,
-                    expire_time=self.ROUTE_TTL+api.current_time() if entry.latency<INFINITY else entry.expire_time)
-        else:
-            tim = route_latency + self.ports.get_latency(port)
-            if (route_dst not in self.table) or (tim < self.table[route_dst].latency) or (port == self.table[route_dst].port):
-                self.table[route_dst] = TableEntry(dst=route_dst, port=port, latency=tim, expire_time=self.ROUTE_TTL+api.current_time())
-        self.send_routes(force=False)
-
+        # TODO: fill this in!
+        self.peer_tables[port][dst] = PeerTableEntry(dst, route_latency, api.current_time()+ROUTE_TTL)
+        self.update_forwarding_table()
+        self.send_routes()
+        
     def handle_link_up(self, port, latency):
         """
         Called by the framework when a link attached to this router goes up.
@@ -167,9 +158,12 @@ class DVRouter(DVRouterBase):
         :returns: nothing.
         """
         self.ports.add_port(port, latency)
-        if self.SEND_ON_LINK_UP:
-            self.send_routes(force=True, single_port=port)
 
+        # TODO: fill in the rest!
+        for host, entry in self.table.items():
+            packet = basics.RoutePacket(host, entry.latency)
+            self.send(packet, port)
+        
     def handle_link_down(self, port):
         """
         Called by the framework when a link attached to this router does down.
@@ -178,9 +172,13 @@ class DVRouter(DVRouterBase):
         :returns: nothing.
         """
         self.ports.remove_port(port)
-        if self.POISON_ON_LINK_DOWN:
-            for k, v in self.table.items():
-                if v.port == port:
-                    self.table[k] = TableEntry(dst=v.dst, port=port, latency=INFINITY, expire_time=self.ROUTE_TTL+api.current_time())
-        self.send_routes(force=False)
 
+        # TODO: fill this in!
+        for host, entry in self.table.items():
+            if entry.port == port:
+                del self.table[host]
+        del self.peer_tables[port]
+        del self.link_latency[port]
+        self.update_forwarding_table()
+        self.send_routes()
+    # Feel free to add any helper methods!
