@@ -1,4 +1,3 @@
-# 导入socket模块
 import socket
 
 # 创建一个UDP套接字对象
@@ -20,14 +19,10 @@ while True:
     # 把接收到的数据解码为字符串
     message = data.decode()
     print(f"收到客户端{client_address}的消息：{message}")
-    # 按空格分割消息，得到用户名和密码
     username, password = message.split()
-    # 判断用户名和密码是否在用户信息字典中
     if username in users and users[username] == password:
-        # 如果正确，发送回复消息“信息正确”
         reply = "信息正确"
     else:
-        # 如果错误，发送回复消息“用户名或密码错误，请再次输入”
         reply = "用户名或密码错误，请再次输入"
     # 把回复消息编码为字节
     data = reply.encode()
@@ -35,5 +30,5 @@ while True:
     server_socket.sendto(data, client_address)
     print(f"发送给客户端{client_address}的消息：{reply}")
 
-# 关闭服务器的套接字（永远不会执行到这一步）
+# 关闭永远不会执行到这一步）
 server_socket.close()

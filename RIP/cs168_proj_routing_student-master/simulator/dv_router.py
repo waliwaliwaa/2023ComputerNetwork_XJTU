@@ -115,6 +115,7 @@ class DVRouter(DVRouterBase):
                             if not force:
                                 if (out_port,host) not in self.history.keys() or self.history[(out_port,host)].latency != newPacket.latency:
                                     self.send(newPacket, out_port)
+                                    # 发出路由之后便更新history
                                     self.history[(out_port,host)] = newPacket
                             else:
                                 self.send(newPacket, out_port)
@@ -147,51 +148,7 @@ class DVRouter(DVRouterBase):
 
             else:
                 print("没写")
-
-                            
-    # def send_routes(self, force=False, single_port=None):
-    #     """
-    #     Send route advertisements for all routes in the table and update history
-
-    #     :param force: if True, advertises ALL routes in the table;
-    #                   otherwise, advertises only those routes that have
-    #                   changed since the last advertisement.
-    #            single_port: if not None, sends updates only to that port; to
-    #                         be used in conjunction with handle_link_up.
-    #     :return: nothing.
-    #     """
-    #     if single_port:
-    #         print("Single Port not Yet.")
-    #     else:
-    #         for port in self.ports.get_all_ports():
-    #             # self.send_single(force, port)
-    #             for destination, current_entry in self.table.items():
-    #                 # Calculate current latency based on the conditions
-    #                 if (current_entry.port != port) or (not self.POISON_REVERSE):
-    #                     current_latency = current_entry.latency
-    #                 else:
-    #                     current_latency = INFINITY
-
-    #                 # Check if force is not True and there's a previous entry for the destination
-    #                 if (not force) and (destination in self.history):
-    #                     last_entry = self.history[destination]
-    #                     # Calculate last latency based on the conditions
-    #                     if (last_entry.port != port) or (not self.POISON_REVERSE):
-    #                         last_latency = last_entry.latency
-    #                     else:
-    #                         last_latency = INFINITY
-
-    #                     # Skip if last latency is the same as current latency
-    #                     if last_latency == current_latency:
-    #                         continue
-
-    #                 # Check if SPLIT_HORIZON is not enabled or the port is different from the current entry's port
-    #                 if (not self.SPLIT_HORIZON) or (port != current_entry.port):
-    #                     # Send route advertisement
-    #                     self.send_route(port=port, dst=destination, latency=current_latency)    
-                        
-    #     self.history = self.table
-
+                
     def expire_routes(self):
         """
         Clears out expired routes from table.
