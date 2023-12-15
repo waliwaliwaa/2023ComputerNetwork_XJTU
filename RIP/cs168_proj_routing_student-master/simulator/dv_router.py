@@ -160,8 +160,8 @@ class DVRouter(DVRouterBase):
             # print(table_entry.expire_time)
             if table_entry.expire_time == FOREVER:
                 continue
-
-            # poison & expired
+            
+            # 当expired时不仅删除该信息，并且向其他路由表发送该路由不可达，加速收敛
             if self.POISON_EXPIRED and api.current_time() > table_entry.expire_time:
                 current_route = self.table[host]
                 poison_route = TableEntry(host, current_route.port, latency=INFINITY, expire_time=self.ROUTE_TTL)
@@ -222,9 +222,6 @@ class DVRouter(DVRouterBase):
         # Add the port to the router's list of ports with its associated latency.
         self.ports.add_port(port, latency)
 
-        # If SEND_ON_LINK_UP flag is enabled, send all routes to the new neighbor on the specified port.
-        # if self.SEND_ON_LINK_UP:
-        #     self.send_routes(force=True, single_port=port)
 
     def handle_link_down(self, port):
         """
@@ -233,17 +230,3 @@ class DVRouter(DVRouterBase):
         :param port: the port number used by the link.
         :returns: nothing.
         """
- 
-        # for host in list(self.table.keys()):
-        #     # Check if the route goes through the link that went down (matching port).
-        #     if self.table[host].port == port:
-        #         # If POISON_ON_LINK_DOWN flag is enabled, poison and immediately send updates for affected routes.
-        #         if self.POISON_ON_LINK_DOWN:
-        #             # Create a poison route and replace it in the routing table for the specific destination.
-        #             poison_route = TableEntry(host, port, latency=INFINITY, expire_time=self.table[host].expire_time)
-        #             self.table[host] = poison_route
-        #             # Send the poisoned routes to notify other routers of the changes.
-        #             self.send_routes(force=False)
-
-        #         # Remove any routes that go through the link that went down.
-        #         del self.table[host]
